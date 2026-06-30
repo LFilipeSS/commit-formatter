@@ -242,7 +242,7 @@ app.get('/api/scan', (req, res) => {
           const filePath = parts[parts.length - 1];
 
           const task      = classifyFile(statusChar, filePath);
-          const shortHash = (currentHash || '').substring(0, 8);
+          const shortHash = (currentHash || '').substring(0, 10);
           const key       = `${projectName}/${filePath}#${shortHash}`;
 
           if (seen.has(key)) {
