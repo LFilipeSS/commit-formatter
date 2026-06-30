@@ -17,7 +17,7 @@ Desenvolvido por **Luiz Filipe**
 ### 1. Clone o repositório
 
 ```bash
-git clone <URL_DO_REPO>
+git clone https://github.com/LFilipeSS/commit-formatter.git
 cd commit-formatter
 ```
 
