@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Commit Formatter — USTIBB</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 32px 24px 64px;
+    }
+
+    header { max-width: 900px; margin: 0 auto 32px; }
+    header h1 { font-size: 22px; font-weight: 700; color: #f8fafc; letter-spacing: -0.3px; }
+    header p  { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+    #author-badge {
+      position: fixed; top: 20px; right: 24px;
+      font-size: 12px; color: #475569; cursor: pointer;
+      transition: color 0.15s; z-index: 100;
+    }
+    #author-badge:hover { color: #94a3b8; }
+    #author-badge strong { color: #64748b; }
+
+    #contact-popup {
+      display: none; position: fixed; top: 48px; right: 24px;
+      z-index: 200;
+    }
+    #contact-popup.open { display: block; }
+    #contact-box {
+      background: #1e2330; border: 1px solid #2d3548;
+      border-radius: 12px; padding: 18px 20px;
+      box-shadow: 0 8px 32px #00000055; min-width: 300px;
+    }
+
+    .card {
+      background: #1e2330;
+      border: 1px solid #2d3548;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 900px;
+      margin: 0 auto 20px;
+    }
+
+    .card h2 {
+      font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #64748b; margin-bottom: 16px;
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1.8fr 1.2fr 100px;
+      gap: 12px;
+      align-items: start;
+    }
+
+    label { display: block; font-size: 12px; font-weight: 500; color: #94a3b8; margin-bottom: 6px; }
+
+    input, select {
+      width: 100%; background: #0f1117; border: 1px solid #2d3548;
+      border-radius: 8px; padding: 9px 12px; font-size: 13px;
+      color: #e2e8f0; outline: none; transition: border-color 0.15s; font-family: inherit;
+    }
+    input:focus, select:focus { border-color: #3b82f6; }
+    select option { background: #1e2330; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #3b82f6; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s; font-family: inherit;
+    }
+    .btn-primary:hover   { background: #2563eb; }
+    .btn-primary:active  { background: #1d4ed8; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #2d3548; color: #cbd5e1; border: none; border-radius: 8px;
+      padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: background 0.15s; font-family: inherit; white-space: nowrap;
+    }
+    .btn-secondary:hover { background: #374151; }
+
+    .actions-row { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+
+    /* Stats */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .stat-box {
+      background: #0f1117; border: 1px solid #2d3548;
+      border-radius: 10px; padding: 16px; text-align: center;
+    }
+    .stat-box .val { font-size: 26px; font-weight: 700; color: #f8fafc; line-height: 1; }
+    .stat-box .lbl { font-size: 11px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-box.accent .val { color: #3b82f6; }
+
+    /* Tabs */
+    .tab-row {
+      display: flex; gap: 4px; margin-bottom: 20px;
+      border-bottom: 1px solid #2d3548; padding-bottom: 0;
+    }
+    .tab {
+      padding: 8px 16px; font-size: 13px; font-weight: 500; color: #64748b;
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab.active { color: #e2e8f0; border-bottom-color: #3b82f6; }
+    .tab:hover:not(.active) { color: #94a3b8; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Accordion */
+    .accordion { display: flex; flex-direction: column; gap: 8px; }
+
+    .acc-item {
+      border: 1px solid #2d3548; border-radius: 10px; overflow: hidden;
+    }
+
+    .acc-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; cursor: pointer;
+      background: #151a27;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .acc-header:hover { background: #1a2035; }
+
+    .acc-chevron {
+      flex-shrink: 0; color: #64748b;
+      transition: transform 0.2s;
+    }
+    .acc-item.open .acc-chevron { transform: rotate(90deg); }
+
+    .acc-code {
+      font-family: monospace; font-size: 11px; font-weight: 600;
+      background: #2d3548; color: #94a3b8; border-radius: 5px;
+      padding: 2px 8px; flex-shrink: 0;
+    }
+
+    .acc-label {
+      font-size: 13px; font-weight: 500; color: #e2e8f0; flex: 1; min-width: 0;
+    }
+
+    .acc-meta {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+
+    .acc-count {
+      font-size: 12px; color: #60a5fa; font-weight: 600;
+      background: #3b82f620; border-radius: 20px; padding: 2px 10px;
+    }
+
+    .acc-ustibb {
+      font-size: 12px; color: #a3e635; font-weight: 600;
+      background: #84cc1615; border-radius: 20px; padding: 2px 10px;
+      white-space: nowrap;
+    }
+
+    .acc-body {
+      display: none; padding: 0 16px 14px; background: #0f1117;
+    }
+    .acc-item.open .acc-body { display: block; }
+
+    textarea.acc-output {
+      width: 100%; background: #0a0d14; border: 1px solid #2d3548;
+      border-radius: 8px; padding: 12px 14px;
+      font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
+      font-size: 11.5px; color: #a3e635; line-height: 1.7;
+      resize: vertical; min-height: 100px; outline: none;
+    }
+
+    /* Summary table */
+    .group-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .group-table th {
+      text-align: left; padding: 8px 12px; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      color: #64748b; border-bottom: 1px solid #2d3548;
+    }
+    .group-table td {
+      padding: 9px 12px; border-bottom: 1px solid #1e2330;
+      color: #cbd5e1; vertical-align: middle;
+    }
+    .group-table tr:last-child td { border-bottom: none; }
+    .group-table tr:hover td { background: #1a2035; }
+
+    .badge {
+      display: inline-block; background: #1e2330; border: 1px solid #2d3548;
+      border-radius: 5px; padding: 2px 7px; font-size: 11px;
+      color: #94a3b8; font-family: monospace;
+    }
+    .count-pill {
+      display: inline-block; background: #3b82f620; color: #60a5fa;
+      border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600;
+    }
+
+    /* Details tab */
+    .filter-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 4px 12px; border-radius: 20px; border: 1px solid #2d3548;
+      background: transparent; color: #94a3b8; font-size: 12px; cursor: pointer;
+      transition: all 0.15s; font-family: inherit;
+    }
+    .filter-btn:hover { border-color: #3b82f6; color: #60a5fa; }
+    .filter-btn.active { background: #3b82f620; border-color: #3b82f6; color: #60a5fa; }
+
+    #details-table th:nth-child(1) { width: 130px; }
+    #details-table th:nth-child(2) { width: 110px; }
+    #details-table th:nth-child(4) { width: 80px; }
+    #details-table th:nth-child(5) { width: 70px; }
+
+    .branch-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    #branchesBody { display: flex; flex-direction: column; gap: 12px; }
+
+    .proj-card {
+      background: #1e2330; border: 1px solid #2d3548;
+      border-radius: 10px; overflow: hidden;
+    }
+    .proj-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 18px; background: #151a27; border-bottom: 1px solid #2d3548;
+    }
+    .proj-card-header-name {
+      font-size: 14px; font-weight: 700; color: #f1f5f9;
+    }
+    .proj-card-total {
+      font-size: 12px; font-weight: 600; color: #a3e635;
+      background: #84cc1615; border: 1px solid #84cc1630;
+      border-radius: 5px; padding: 3px 12px;
+    }
+    .proj-card-no-changes {
+      font-size: 12px; color: #475569; font-style: italic; padding: 3px 0;
+    }
+
+    .proj-inner-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .proj-inner-table th {
+      text-align: left; padding: 8px 18px; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.6px; color: #475569;
+      border-bottom: 1px solid #2d3548;
+    }
+    .proj-inner-table th:nth-child(2) { text-align: right; width: 100px; }
+    .proj-inner-table td {
+      padding: 10px 18px; border-bottom: 1px solid #252d3f;
+      vertical-align: middle;
+    }
+    .proj-inner-table tr:last-child td { border-bottom: none; }
+    .proj-inner-table tr:hover td { background: #1a1f2e; }
+    .proj-inner-table tfoot td {
+      border-top: 1px solid #2d3548; border-bottom: none;
+      padding: 10px 18px; background: #151a27;
+      font-size: 12px; color: #64748b;
+    }
+
+    .proj-no-branch-row td {
+      color: #475569; font-size: 12px; font-style: italic; padding: 14px 18px;
+    }
+    .branch-tag {
+      font-family: monospace; font-size: 12px; font-weight: 500;
+      background: none; border: none;
+      padding: 2px 0; color: #93b4ff;
+      white-space: nowrap; max-width: 280px;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .branch-tag.branch-removed {
+      color: #4b5563; text-decoration: line-through;
+    }
+    .branch-remove-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; flex-shrink: 0;
+      background: #374151; border: 1px solid #4b5563;
+      border-radius: 4px; color: #9ca3af; cursor: pointer;
+      font-size: 13px; font-weight: 700; line-height: 1;
+      transition: all 0.15s; font-family: inherit;
+    }
+    .branch-remove-btn:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .branch-tag.branch-removed .branch-remove-btn {
+      background: #1e3a2a; border-color: #2d5a40; color: #4ade80;
+    }
+    .branch-tag.branch-removed .branch-remove-btn:hover {
+      background: #4ade80; border-color: #4ade80; color: #000;
+    }
+
+    .path-cell { font-family: monospace; font-size: 11.5px; color: #94a3b8; word-break: break-all; }
+
+    /* Error */
+    .error-list {
+      background: #2a1515; border: 1px solid #7f1d1d;
+      border-radius: 8px; padding: 12px 16px; font-size: 12px;
+      color: #fca5a5; margin-top: 12px;
+    }
+    .error-list li { margin-left: 16px; margin-top: 4px; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid #ffffff40; border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #results { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Commit Formatter — USTIBB</h1>
+  <p>Varre os projetos git e formata os commits do período no padrão de medição</p>
+</header>
+
+<div id="author-badge" onclick="toggleContact()" title="Sobre o autor">
+  Feito por <strong>Luiz Filipe</strong>
+</div>
+
+<div id="contact-popup">
+  <div id="contact-box">
+    <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:12px;">Luiz Filipe da Silva Santos</div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#94a3b8;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        lfsantos6@stefanini.com
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        luizfilipedasilvasantos@gmail.com
+      </div>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #2d3548;font-size:12px;color:#64748b;line-height:1.6;">
+      Dúvidas, ideias para novas features ou report de bugs?<br>
+      Entre em contato pelos e-mails acima ou via <strong style="color:#94a3b8;">Teams</strong>.
+    </div>
+  </div>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <h2>Configuração</h2>
+  <div class="config-grid">
+    <div>
+      <label>Pasta que contém todos os seus projetos</label>
+      <div style="display:flex;gap:8px;">
+        <input id="basePath" type="text" placeholder="Selecione ou digite o caminho da pasta..." style="flex:1;" oninput="checkFields()" />
+        <button class="btn-secondary" onclick="pickFolder(this)" title="Selecionar pasta" style="flex-shrink:0;padding:9px 12px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+      <p style="font-size:11px;color:#64748b;margin-top:5px;">Selecione a pasta que contém as subpastas dos seus repositórios git</p>
+    </div>
+    <div>
+      <label>Autor (git)</label>
+      <div style="display:flex;gap:8px;">
+        <input id="author" type="text" placeholder="Nome como está no git" style="flex:1;" />
+        <button class="btn-secondary" onclick="loadGitUser(this)" title="Pegar do git config" style="flex-shrink:0;padding:9px 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        </button>
+      </div>
+    </div>
+    <div>
+      <label>Período (dias)</label>
+      <input id="since" type="number" min="1" value="30" />
+    </div>
+  </div>
+  <div class="actions-row">
+    <button class="btn-primary" id="scanBtn" onclick="scan()" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Escanear projetos
+    </button>
+  </div>
+</div>
+
+<!-- Results -->
+<div id="results">
+  <div class="card">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="tab-row">
+      <div class="tab active" onclick="switchTab('output')">Saída formatada</div>
+      <div class="tab" onclick="switchTab('summary')">Resumo por tarefa</div>
+      <div class="tab" onclick="switchTab('details')">Todos os arquivos</div>
+      <div class="tab" onclick="switchTab('branches')">Projetos</div>
+    </div>
+
+    <!-- Tab: saída formatada (acordeão) -->
+    <div class="tab-panel active" id="tab-output">
+      <div id="accordion" class="accordion"></div>
+    </div>
+
+    <!-- Tab: resumo por tipo -->
+    <div class="tab-panel" id="tab-summary">
+      <table class="group-table">
+        <thead>
+          <tr>
+            <th>Tarefa</th>
+            <th>Descrição</th>
+            <th style="text-align:center;">Qtd.</th>
+            <th style="text-align:right;">USTIBB unit.</th>
+            <th style="text-align:right;">Total USTIBB</th>
+          </tr>
+        </thead>
+        <tbody id="summaryBody"></tbody>
+        <tfoot id="summaryFoot"></tfoot>
+      </table>
+    </div>
+
+    <!-- Tab: todos os arquivos -->
+    <div class="tab-panel" id="tab-details">
+      <div class="filter-row" id="filterRow"></div>
+      <table class="group-table" id="details-table">
+        <thead>
+          <tr>
+            <th>Projeto</th>
+            <th>Tarefa</th>
+            <th>Arquivo</th>
+            <th style="text-align:center;">Status</th>
+            <th style="text-align:right;">USTIBB</th>
+          </tr>
+        </thead>
+        <tbody id="detailsBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Tab: branches -->
+    <div class="tab-panel" id="tab-branches">
+      <div id="branchesBody"></div>
+    </div>
+
+    <div id="errorBox"></div>
+  </div>
+</div>
+
+<script>
+  let allResults    = [];
+  let allBranches   = []; // { project, branch, checkedBranches }
+  let removedBranches = new Set(); // "project::branch"
+  let activeFilter  = 'all';
+
+  function branchKey(project, branch) { return `${project}::${branch}`; }
+
+  function getActiveResults() {
+    if (removedBranches.size === 0) return allResults;
+    return allResults.filter(r =>
+      // mantém se ao menos uma das branches do arquivo NÃO está removida
+      r.branches.some(b => !removedBranches.has(branchKey(r.projectName, b)))
+    );
+  }
+
+  function toggleBranch(project, branch) {
+    const key = branchKey(project, branch);
+    if (removedBranches.has(key)) removedBranches.delete(key);
+    else removedBranches.add(key);
+    rerender();
+  }
+
+  function rerender() {
+    const active = getActiveResults();
+    renderStats(active);
+    renderAccordion(active);
+    renderSummary(active);
+    renderDetails(active);
+    renderBranchesTab();
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    const names = ['output', 'summary', 'details', 'branches'];
+    document.querySelectorAll('.tab').forEach((t, i) =>
+      t.classList.toggle('active', names[i] === name));
+    document.querySelectorAll('.tab-panel').forEach(p =>
+      p.classList.toggle('active', p.id === `tab-${name}`));
+  }
+
+  // ── Contact popup ─────────────────────────────────────────────────────────
+  function toggleContact() {
+    document.getElementById('contact-popup').classList.toggle('open');
+  }
+
+  document.addEventListener('click', e => {
+    const badge = document.getElementById('author-badge');
+    const popup = document.getElementById('contact-popup');
+    if (!badge.contains(e.target) && !popup.contains(e.target)) {
+      popup.classList.remove('open');
+    }
+  });
+
+  // ── Validação dos campos ──────────────────────────────────────────────────
+  function checkFields() {
+    const basePath = document.getElementById('basePath').value.trim();
+    const author   = document.getElementById('author').value.trim();
+    const since    = document.getElementById('since').value.trim();
+    document.getElementById('scanBtn').disabled = !(basePath && author && since);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    ['author', 'since'].forEach(id =>
+      document.getElementById(id).addEventListener('input', checkFields)
+    );
+
+    // Tenta pré-preencher o autor via git config
+    fetch('/api/git-user')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.name) {
+          document.getElementById('author').value = data.name;
+          checkFields();
+        }
+      })
+      .catch(() => {}); // silencioso se falhar
+  });
+
+  // ── Folder picker ─────────────────────────────────────────────────────────
+  async function pickFolder(btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>';
+    btn.disabled = true;
+    try {
+      const res  = await fetch('/api/pick-folder');
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
+      if (res.ok && data.path) {
+        document.getElementById('basePath').value = data.path;
+        checkFields();
+      } else if (data?.error === 'no-picker') {
+        // Linux sem zenity/kdialog — foca no input para o usuário digitar
+        document.getElementById('basePath').focus();
+      }
+      // se cancelou (400 com error='cancelled'), não faz nada
+    } catch (e) {
+      alert('Erro ao abrir seletor de pasta: ' + e.message);
+    } finally {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }
+  }
+
+  // ── Git user ──────────────────────────────────────────────────────────────
+  async function loadGitUser(btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>';
+    btn.disabled = true;
+    try {
+      const res  = await fetch('/api/git-user');
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
+      if (!res.ok) { alert(data.error || `Erro ${res.status} ao ler git config`); return; }
+      document.getElementById('author').value = data.name;
+      checkFields();
+    } catch (e) {
+      alert('Erro ao conectar com o servidor');
+    } finally {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }
+  }
+
+  // ── Scan ──────────────────────────────────────────────────────────────────
+  async function scan() {
+    const basePath = document.getElementById('basePath').value.trim();
+    const author   = document.getElementById('author').value.trim();
+    const sinceDays = parseInt(document.getElementById('since').value) || 30;
+    const since     = `${sinceDays} days ago`;
+
+    if (!basePath) return alert('Informe a pasta raiz dos projetos.');
+
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Escaneando...';
+    document.getElementById('results').style.display = 'none';
+
+    try {
+      const url = `/api/scan?basePath=${encodeURIComponent(basePath)}&author=${encodeURIComponent(author)}&since=${encodeURIComponent(since)}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) { alert('Erro: ' + (data.error || 'Falha ao escanear')); return; }
+
+      allResults = data.results || [];
+      renderResults(data);
+
+    } catch (e) {
+      alert('Erro ao conectar com o servidor: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Escanear projetos`;
+    }
+  }
+
+  // ── Render inicial (após scan) ────────────────────────────────────────────
+  let _repoCount = 0;
+  let _errors    = [];
+
+  function renderResults(data) {
+    allResults      = data.results || [];
+    allBranches     = data.branches || [];
+    removedBranches = new Set();
+    _repoCount      = data.repoCount || 0;
+    _errors         = data.errors    || [];
+
+    // Filtros de detalhe: rebuild
+    const taskCodes = [...new Set(allResults.map(r => r.taskCode))].sort();
+    document.getElementById('filterRow').innerHTML =
+      `<button class="filter-btn active" onclick="filterDetails('all', this)">Todos</button>` +
+      taskCodes.map(c => `<button class="filter-btn" onclick="filterDetails('${c}', this)">${c}</button>`).join('');
+    activeFilter = 'all';
+
+    document.getElementById('errorBox').innerHTML = _errors.length
+      ? `<div class="error-list"><strong>Repositórios com erro:</strong><ul>${_errors.map(e=>`<li>${e.repo}: ${e.error}</li>`).join('')}</ul></div>`
+      : '';
+
+    rerender();
+    document.getElementById('results').style.display = 'block';
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  function renderStats(results) {
+    const totalFiles  = results.length;
+    const totalUstibb = results.reduce((s, r) => s + r.ustibb, 0);
+    const projects    = new Set(results.map(r => r.projectName)).size;
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box">
+        <div class="val">${_repoCount}</div>
+        <div class="lbl">Repositórios encontrados</div>
+      </div>
+      <div class="stat-box">
+        <div class="val">${projects}</div>
+        <div class="lbl">Projetos alterados</div>
+      </div>
+      <div class="stat-box">
+        <div class="val">${totalFiles}</div>
+        <div class="lbl">Arquivos</div>
+      </div>
+      <div class="stat-box accent">
+        <div class="val">${totalUstibb.toFixed(1)}</div>
+        <div class="lbl">Total USTIBB</div>
+      </div>
+    `;
+  }
+
+  // ── Accordion ─────────────────────────────────────────────────────────────
+  function renderAccordion(results) {
+    const groups = {};
+    for (const r of results) {
+      if (!groups[r.taskCode])
+        groups[r.taskCode] = { code: r.taskCode, label: r.description, ustibb: r.ustibb, items: [] };
+      groups[r.taskCode].items.push(r);
+    }
+    const sorted = Object.values(groups).sort((a, b) => a.code.localeCompare(b.code));
+    const acc = document.getElementById('accordion');
+    acc.innerHTML = '';
+
+    for (const g of sorted) {
+      const lines  = g.items.map(r => r.formatted).join('\n');
+      const totalG = (g.ustibb * g.items.length).toFixed(1);
+      const id     = `acc-${g.code.replace(/\./g, '-')}`;
+      const item   = document.createElement('div');
+      item.className = 'acc-item open';
+      item.innerHTML = `
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <svg class="acc-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span class="acc-code">${g.code}</span>
+          <span class="acc-label">${g.label}</span>
+          <div class="acc-meta">
+            <span class="acc-count">${g.items.length} arquivo${g.items.length > 1 ? 's' : ''}</span>
+            <span class="acc-ustibb">${totalG} USTIBB</span>
+            <button class="btn-secondary" onclick="event.stopPropagation(); copyAccOutput('${id}', this)" style="padding:4px 10px;font-size:12px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copiar
+            </button>
+          </div>
+        </div>
+        <div class="acc-body">
+          <textarea id="${id}" class="acc-output" readonly rows="${Math.min(g.items.length + 1, 12)}" style="margin-top:12px;">${lines}</textarea>
+        </div>`;
+      acc.appendChild(item);
+    }
+
+    if (sorted.length === 0)
+      acc.innerHTML = `<p style="color:#64748b;font-size:13px;padding:8px 0;">Nenhum commit encontrado no período.</p>`;
+  }
+
+  // ── Resumo por tarefa ──────────────────────────────────────────────────────
+  function renderSummary(results) {
+    const groups = {};
+    for (const r of results) {
+      if (!groups[r.taskCode])
+        groups[r.taskCode] = { code: r.taskCode, label: r.description, ustibb: r.ustibb, count: 0 };
+      groups[r.taskCode].count++;
+    }
+    const sorted      = Object.values(groups).sort((a, b) => a.code.localeCompare(b.code));
+    const totalUstibb = results.reduce((s, r) => s + r.ustibb, 0);
+
+    document.getElementById('summaryBody').innerHTML = sorted.map(g => `
+      <tr>
+        <td><span class="badge">${g.code}</span></td>
+        <td>${g.label}</td>
+        <td style="text-align:center;"><span class="count-pill">${g.count}</span></td>
+        <td style="text-align:right;color:#94a3b8;">${g.ustibb}</td>
+        <td style="text-align:right;font-weight:600;color:#a3e635;">${(g.ustibb * g.count).toFixed(1)}</td>
+      </tr>`).join('');
+
+    document.getElementById('summaryFoot').innerHTML = sorted.length ? `
+      <tr>
+        <td colspan="4" style="text-align:right;font-size:12px;color:#64748b;padding:10px 12px;">Total</td>
+        <td style="text-align:right;font-weight:700;font-size:15px;color:#a3e635;padding:10px 12px;">${totalUstibb.toFixed(1)}</td>
+      </tr>` : '';
+  }
+
+  // ── Accordion toggle ──────────────────────────────────────────────────────
+  function toggleAcc(header) {
+    header.closest('.acc-item').classList.toggle('open');
+  }
+
+  // ── Copy accordion section ─────────────────────────────────────────────────
+  function copyAccOutput(id, btn) {
+    const text = document.getElementById(id).value;
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✓ Copiado!';
+      setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+  }
+
+  // ── Details filter ────────────────────────────────────────────────────────
+  function filterDetails(code, btn) {
+    activeFilter = code;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const active   = getActiveResults();
+    const filtered = code === 'all' ? active : active.filter(r => r.taskCode === code);
+    renderDetails(filtered);
+  }
+
+  function renderDetails(results) {
+    const statusLabel = { A: 'Criação', M: 'Alteração', R: 'Alteração', C: 'Cópia' };
+    const statusColor = { A: '#4ade80', M: '#facc15', R: '#facc15', C: '#94a3b8' };
+    document.getElementById('detailsBody').innerHTML = results.map(r => `
+      <tr>
+        <td style="font-weight:500;color:#e2e8f0;">${r.projectName}</td>
+        <td><span class="badge">${r.taskCode}</span></td>
+        <td class="path-cell">${r.filePath}</td>
+        <td style="text-align:center;color:${statusColor[r.status]||'#94a3b8'};font-size:12px;">${statusLabel[r.status]||r.status}</td>
+        <td style="text-align:right;color:#a3e635;font-size:12px;">${r.ustibb}</td>
+      </tr>`).join('');
+  }
+
+  // ── Branches tab ──────────────────────────────────────────────────────────
+  function renderBranchesTab() {
+    const sorted = [...allBranches].sort((a, b) => {
+      const aHas = (a.checkedBranches || []).length > 0 ? 0 : 1;
+      const bHas = (b.checkedBranches || []).length > 0 ? 0 : 1;
+      return aHas - bHas || a.project.localeCompare(b.project);
+    });
+
+    document.getElementById('branchesBody').innerHTML = sorted.map(r => {
+      const checked = r.checkedBranches || [];
+
+      // Total de arquivos ativos do projeto
+      const activeFiles = getActiveResults().filter(res => res.projectName === r.project).length;
+
+      const activeProj  = getActiveResults().filter(res => res.projectName === r.project);
+      const totalUstibb = activeProj.reduce((s, res) => s + res.ustibb, 0);
+      const headerRight = checked.length
+        ? `<div style="display:flex;gap:8px;align-items:center;">
+             <span class="proj-card-total">${activeFiles} arquivo${activeFiles !== 1 ? 's' : ''}</span>
+             <span class="proj-card-total" style="color:#60a5fa;background:#3b82f615;border-color:#3b82f630;">${totalUstibb.toFixed(1)} USTIBB</span>
+           </div>`
+        : `<span class="proj-card-no-changes">Sem alterações no período</span>`;
+
+      const tableBody = checked.length ? `
+        <table class="proj-inner-table">
+          <thead>
+            <tr>
+              <th>Branch conferida</th>
+              <th>Arquivos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${checked.map(b => {
+              const key     = branchKey(r.project, b);
+              const removed = removedBranches.has(key);
+              const branchResults = allResults.filter(res =>
+                res.projectName === r.project && res.branches.includes(b)
+              );
+              const count   = branchResults.length;
+              const ustibb  = branchResults.reduce((s, res) => s + res.ustibb, 0);
+              const style   = `text-align:right;font-weight:600;color:${removed?'#475569':'#a3e635'};${removed?'text-decoration:line-through;':''}`;
+              return `
+                <tr>
+                  <td>
+                    <span class="branch-tag ${removed ? 'branch-removed' : ''}">
+                      ${b}
+                      <button class="branch-remove-btn" onclick="toggleBranch('${r.project}','${b}')" title="${removed ? 'Restaurar branch' : 'Remover branch'}">
+                        ${removed ? '↩' : '×'}
+                      </button>
+                    </span>
+                  </td>
+                  <td style="${style}">${count}</td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              ${(() => {
+                const activeProj = getActiveResults().filter(res => res.projectName === r.project);
+                const totalUstibb = activeProj.reduce((s, res) => s + res.ustibb, 0);
+                return `<td style="color:#64748b;font-size:12px;">Total ativo</td>
+                        <td style="text-align:right;font-weight:700;color:#a3e635;">${activeFiles}</td>`;
+              })()}
+            </tr>
+          </tfoot>
+        </table>` : '';
+
+      return `
+        <div class="proj-card">
+          <div class="proj-card-header">
+            <span class="proj-card-header-name">${r.project}</span>
+            ${headerRight}
+          </div>
+          ${tableBody}
+        </div>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>
