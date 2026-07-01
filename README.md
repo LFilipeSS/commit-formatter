@@ -31,7 +31,33 @@ cd commit-formatter
 
 O script instala as dependências automaticamente na primeira vez e abre o browser em `http://localhost:3456`.
 
-> **macOS:** na primeira execução o sistema pode bloquear o arquivo. Vá em **Preferências do Sistema → Segurança e Privacidade** e clique em "Permitir mesmo assim".
+> **Alternativa que sempre funciona (macOS e Linux):** se o duplo clique não abrir, abra o Terminal na pasta do projeto e rode `bash "INICIAR NO MAC.command"` (ou `INICIAR NO LINUX.sh`). Executar via `bash` não exige permissão de execução, então dispensa qualquer configuração.
+
+---
+
+## Solução de problemas (macOS)
+
+### "O arquivo não pôde ser executado porque você não possui os privilégios de acesso apropriados"
+
+Ao baixar/descompactar o projeto (principalmente pelo botão **Download ZIP** do GitHub), o macOS remove a permissão de execução do arquivo. Para devolvê-la, abra o Terminal na pasta do projeto e rode uma única vez:
+
+```bash
+chmod +x "INICIAR NO MAC.command"
+```
+
+> Dica: você pode digitar `chmod +x ` (com o espaço) e **arrastar o arquivo** do Finder para o Terminal — o caminho é colado automaticamente.
+
+Se preferir não mexer em permissões, use a alternativa via `bash` descrita acima.
+
+
+Na primeira execução o macOS pode bloquear o arquivo por segurança. Duas opções:
+
+- Vá em **Ajustes do Sistema → Privacidade e Segurança** e clique em **"Abrir mesmo assim"**; ou
+- Remova a marca de quarentena pelo Terminal:
+
+```bash
+xattr -d com.apple.quarantine "INICIAR NO MAC.command"
+```
 
 ---
 
