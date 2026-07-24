@@ -42,7 +42,9 @@ O script instala as dependências automaticamente na primeira vez e abre o brows
 Ao baixar/descompactar o projeto (principalmente pelo botão **Download ZIP** do GitHub), o macOS remove a permissão de execução do arquivo. Para devolvê-la, abra o Terminal na pasta do projeto e rode uma única vez:
 
 ```bash
+cd "/Users/SEU_USUARIO/Downloads/commit-formatter-main"
 chmod +x "INICIAR NO MAC.command"
+./"INICIAR NO MAC.command"
 ```
 
 > Dica: você pode digitar `chmod +x ` (com o espaço) e **arrastar o arquivo** do Finder para o Terminal — o caminho é colado automaticamente.
